@@ -35,9 +35,17 @@ class VideoFile(models.Model):
         choices=Quality.choices
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['video', 'quality'],
+                name='unique_video_quality'
+            )
+        ]
+
     def __str__(self):
         return f'{self.video.name} - {self.quality}'
-    
+
 
 class Like(models.Model):
     """Сущность Лайк."""
