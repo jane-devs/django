@@ -2,12 +2,18 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
-from django.db.models import Q
+from django.db.models import Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.db import transaction
 
 from .models import Video, Like
-from .serializers import VideoSerializer, VideoIDSerializer
+from .serializers import (
+    VideoSerializer, VideoIDSerializer,
+    VideoStatisticsSerializer
+)
 from .permissions import IsStaffOrOwnerOrPublished
+from users.models import CustomUser
+from users.services import get_users_likes_sum_subquery
 
 
 class VideoDetailView(generics.RetrieveAPIView):
@@ -20,6 +26,7 @@ class VideoDetailView(generics.RetrieveAPIView):
 class VideoListView(generics.ListAPIView):
     """Список видео с пагинацией."""
     serializer_class = VideoSerializer
+    permission_classes = [IsStaffOrOwnerOrPublished]
 
     def get_queryset(self):
         user = self.request.user
@@ -81,3 +88,24 @@ class VideoLikeToggleView(APIView):
             {'detail': 'Лайк удалён.'},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+class VideoStatisticsSubqueryView(generics.ListAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = VideoStatisticsSerializer
+
+    def get_queryset(self):
+        return get_users_likes_sum_subquery()
+
+
+class VideoStatisticsGroupByView(generics.ListAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = VideoStatisticsSerializer
+
+    def get_queryset(self):
+        return CustomUser.objects.annotate(
+            likes_sum=Coalesce(
+                Sum('videos__total_likes', filter=Q(videos__is_published=True)),
+                Value(0)
+            )
+        ).order_by('-likes_sum')

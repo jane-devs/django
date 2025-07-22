@@ -17,6 +17,10 @@ class Video(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = 'Видео'
+        verbose_name_plural = 'Видео'
+
 
 class VideoFile(models.Model):
     """Сущность видеофайла."""
@@ -36,6 +40,8 @@ class VideoFile(models.Model):
     )
 
     class Meta:
+        verbose_name = 'Видео-файл'
+        verbose_name_plural = 'Видео-файлы'
         constraints = [
             models.UniqueConstraint(
                 fields=['video', 'quality'],
