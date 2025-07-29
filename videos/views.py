@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from django.db.models import Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.db import transaction
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from .models import Video, Like
 from .serializers import (
@@ -16,15 +17,13 @@ from users.models import CustomUser
 from users.services import get_users_likes_sum_subquery
 
 
-class VideoDetailView(generics.RetrieveAPIView):
-    """Получить видео по ID."""
-    queryset = Video.objects.all()
-    serializer_class = VideoSerializer
-    permission_classes = [IsStaffOrOwnerOrPublished]
+class VideoViewSet(ReadOnlyModelViewSet):
+    """Позволяет получить список видеороликов и детали конкретного видео.
 
-
-class VideoListView(generics.ListAPIView):
-    """Список видео с пагинацией."""
+    - Неавторизованные пользователи видят только опубликованные видео.
+    - Авторизованные — опубликованные и свои.
+    - Админы — все видео.
+    """
     serializer_class = VideoSerializer
     permission_classes = [IsStaffOrOwnerOrPublished]
 
@@ -32,15 +31,17 @@ class VideoListView(generics.ListAPIView):
         user = self.request.user
         if user.is_staff:
             return Video.objects.all()
-        if user.is_authenticated:
-            return Video.objects.filter(
-                Q(is_published=True) | Q(owner=user)
-            )
+        elif user.is_authenticated:
+            return Video.objects.filter(Q(is_published=True) | Q(owner=user))
         return Video.objects.filter(is_published=True)
 
 
 class VideoIDListView(generics.ListAPIView):
-    """Получение списка опубликованных ID видео."""
+    """
+    APIView для получения списка ID всех опубликованных видеороликов.
+
+    Доступно только служебным пользователям. Возвращает плоский список без пагинации.
+    """
     queryset = Video.objects.filter(is_published=True)
     serializer_class = VideoIDSerializer
     permission_classes = [IsAdminUser]
@@ -48,7 +49,12 @@ class VideoIDListView(generics.ListAPIView):
 
 
 class VideoLikeToggleView(APIView):
-    """Взаимодействие с лайками."""
+    """
+    APIView для добавления и удаления лайков к опубликованным видео.
+
+    Доступно только авторизованным пользователям. Обеспечивает уникальность лайка
+    и защищено транзакцией от гонок.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -91,6 +97,12 @@ class VideoLikeToggleView(APIView):
 
 
 class VideoStatisticsSubqueryView(generics.ListAPIView):
+    """
+    APIView для получения статистики по лайкам пользователей (через подзапрос).
+
+    Доступно только служебным пользователям. Возвращает количество лайков,
+    суммированных по опубликованным видео каждого пользователя.
+    """
     permission_classes = [IsAdminUser]
     serializer_class = VideoStatisticsSerializer
 
@@ -99,6 +111,12 @@ class VideoStatisticsSubqueryView(generics.ListAPIView):
 
 
 class VideoStatisticsGroupByView(generics.ListAPIView):
+    """
+    APIView для получения статистики по лайкам пользователей (через group by).
+
+    Доступно только служебным пользователям. Использует группировку и агрегацию
+    по опубликованным видео.
+    """
     permission_classes = [IsAdminUser]
     serializer_class = VideoStatisticsSerializer
 

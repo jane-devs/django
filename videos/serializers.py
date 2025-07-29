@@ -7,7 +7,7 @@ class VideoFileSerializer(serializers.ModelSerializer):
     """Сериализатор для видеофайла."""
     class Meta:
         model = VideoFile
-        fields = ('id', 'file', 'quality')
+        fields = ('file', 'quality')
 
 
 class VideoSerializer(serializers.ModelSerializer):
